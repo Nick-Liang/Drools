@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://jboss.org/kie/6.0.0/kmodule">
+
+    <kbase name="clock" packages="rules">
+        <ksession name="session-clock" type="stateless"/>
+    </kbase>
+    <kbase name="orders" packages="rules">
+        <ksession name="session-orders" type="stateful"/>
+    </kbase>
+
+</kmodule>

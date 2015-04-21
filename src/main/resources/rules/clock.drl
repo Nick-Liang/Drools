@@ -1,0 +1,68 @@
+package rules.timer;
+
+import com.diligrp.gpurchase.back.domain.PromotionRule;
+import com.diligrp.gpurchase.back.domain.PromotionProduct;
+import com.diligrp.gpurchase.back.dao.impl.PromotionProductDaoImpl;
+import com.diligrp.gpurchase.back.common.ActivityStatusEnum
+import com.diligrp.gpurchase.back.rule.RuleEngineHelper
+import java.lang.Long;
+import java.lang.String;
+import java.util.Date;
+
+global Long currentTime;
+global PromotionProductDaoImpl promotionProductDaoImpl;
+global RuleEngineHelper ruleEngineHelper;
+
+rule "begin_time_check"
+	salience 0
+	no-loop true
+    when
+    	$p : PromotionRule(getStartTime() <= currentTime, promotionProductStatus == ActivityStatusEnum.CREATED.getStatus());
+    then
+    	int status = ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus();
+    	if($p.getVirtualPeople() > $p.getPeopleThreshold() || $p.getVirtualQuantity() > $p.getQuantityThreshold()){
+    		status = ActivityStatusEnum.ONSALE_SATISFIED.getStatus();
+    	}
+    	promotionProductDaoImpl.updateStatusById($p.getPromotionProductId(), status);
+    	String info = "---Update PromotionProduct Status--- : id= "
+    					 + $p.getPromotionProductId() 
+    					 + ", From-Status= "
+    					 + $p.getPromotionProductStatus()
+    					 + ", To-Status= "
+    					 + status;
+        System.out.println(info);
+    	$p.setPromotionProductStatus(ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus());
+    	update($p);
+end
+  
+rule "end_time_check_not_satisfied"
+	salience 0
+    when
+    	$p : PromotionRule(getEndTime() <= currentTime, promotionProductStatus == ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus());
+    then
+    	promotionProductDaoImpl.updateStatusById($p.getPromotionProductId(), ActivityStatusEnum.FINALIZED_NOT_SATISFIED.getStatus());
+    	ruleEngineHelper.cancelOrdersWhenPromotionFinalized($p.getPromotionProductId(), ActivityStatusEnum.FINALIZED_NOT_SATISFIED.getStatus());
+        String info = "---Update PromotionProduct Status--- : id= "
+    					 + $p.getPromotionProductId() 
+    					 + ", From-Status= "
+    					 + $p.getPromotionProductStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.FINALIZED_NOT_SATISFIED.getStatus();
+        System.out.println(info);
+end  
+
+rule "end_time_check_satisfied"
+	salience 0
+    when
+    	$p : PromotionRule(getEndTime() <= currentTime, promotionProductStatus == ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    then
+    	promotionProductDaoImpl.updateStatusById($p.getPromotionProductId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	ruleEngineHelper.cancelOrdersWhenPromotionFinalized($p.getPromotionProductId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+        String info = "---Update PromotionProduct Status--- : id= "
+    					 + $p.getPromotionProductId() 
+    					 + ", From-Status= "
+    					 + $p.getPromotionProductStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.FINALIZED_SATISFIED.getStatus();
+        System.out.println(info);
+end  

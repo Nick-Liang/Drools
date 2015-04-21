@@ -1,0 +1,103 @@
+package rules.timer;
+
+import com.diligrp.gpurchase.back.domain.PromotionRule;
+import com.diligrp.gpurchase.back.domain.PromotionProduct;
+import com.diligrp.titan.sdk.domain.Product;
+import com.diligrp.gpurchase.back.dao.impl.PromotionProductDaoImpl;
+import com.diligrp.gpurchase.back.common.ActivityStatusEnum
+import com.diligrp.gpurchase.back.rule.RuleEngineHelper
+import java.lang.String;
+import java.lang.Long;
+import java.lang.Boolean;
+
+global Long orderQuantity;
+global Boolean isLowStockAll;
+global RuleEngineHelper ruleEngineHelper;
+global PromotionProductDaoImpl promotionProductDaoImpl;
+
+rule "order_count_check"
+	salience 0
+	no-loop true
+    when
+    	$p : PromotionRule($promotionId :promotionProductId, promotionProductStatus == ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus(), orderQuantity >= getPeopleThreshold());
+    	$promotionProduct : PromotionProduct(id == $promotionId);
+    then
+    	promotionProductDaoImpl.updateStatusById($p.getPromotionProductId(), ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	String info = "---Update PromotionProduct Status--- : id= "
+    					 + $p.getPromotionProductId() 
+    					 + ", From-Status= "
+    					 + $p.getPromotionProductStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.ONSALE_SATISFIED.getStatus();
+        System.out.println(info);
+    	$p.setPromotionProductStatus(ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	$promotionProduct.setStatus(ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	update($p);
+    	update($promotionProduct);
+end
+
+rule "order_quantity_check"
+	salience 0
+	no-loop true
+    when
+    	$p : PromotionRule($promotionId :promotionProductId, promotionProductStatus == ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus(), $threshold: getQuantityThreshold(), $virtualQ: getVirtualQuantity());
+    	$promotionProduct : PromotionProduct(id == $promotionId, saleNum + $virtualQ >= $threshold);
+    then
+    	promotionProductDaoImpl.updateStatusById($p.getPromotionProductId(), ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	String info = "---Update PromotionProduct Status--- : id= "
+    					 + $p.getPromotionProductId() 
+    					 + ", From-Status= "
+    					 + $p.getPromotionProductStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.ONSALE_SATISFIED.getStatus();
+        System.out.println(info);
+    	$p.setPromotionProductStatus(ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	$promotionProduct.setStatus(ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	update($p);
+    	update($promotionProduct);
+end
+
+rule "order_sellout_check"
+	salience 0
+    when
+    	$promotionProduct : PromotionProduct($pid : id, status == ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus() || status == ActivityStatusEnum.ONSALE_SATISFIED.getStatus());
+    	$p : PromotionRule(promotionProductId == $pid)
+    	$product : Product(pid == $pid, stockNum <= 0)
+    then
+    	promotionProductDaoImpl.updateStatusById($promotionProduct.getId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	ruleEngineHelper.cancelOrdersWhenPromotionFinalized($promotionProduct.getId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	String info = "---Update PromotionProduct Status--- : id= "
+    					 + $promotionProduct.getId() 
+    					 + ", From-Status= "
+    					 + $promotionProduct.getStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.FINALIZED_SATISFIED.getStatus();
+        System.out.println(info);
+        
+        $p.setPromotionProductStatus(ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	$promotionProduct.setStatus(ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	update($p);
+    	update($promotionProduct);
+end
+
+rule "order_low_stock_check"
+	salience 0
+    when
+    	$promotionProduct : PromotionProduct($pid : id, status == ActivityStatusEnum.ONSALE_NOT_SATISFIED.getStatus() || status == ActivityStatusEnum.ONSALE_SATISFIED.getStatus(), isLowStockAll);
+    	$p : PromotionRule(promotionProductId == $pid)
+    then
+    	promotionProductDaoImpl.updateStatusById($promotionProduct.getId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	ruleEngineHelper.cancelOrdersWhenPromotionFinalized($promotionProduct.getId(), ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	String info = "---Update PromotionProduct Status--- : id= "
+    					 + $promotionProduct.getId() 
+    					 + ", From-Status= "
+    					 + $promotionProduct.getStatus()
+    					 + ", To-Status= "
+    					 + ActivityStatusEnum.FINALIZED_SATISFIED.getStatus();
+        System.out.println(info);
+        
+        $p.setPromotionProductStatus(ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	$promotionProduct.setStatus(ActivityStatusEnum.FINALIZED_SATISFIED.getStatus());
+    	update($p);
+    	update($promotionProduct);
+end
